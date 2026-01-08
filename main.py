@@ -41,8 +41,72 @@ class ReLogter:
         self.__update_buffer(message)
 
 
-    def write_section(self, section_name):
-        message = fr"\section{{{section_name}}}" + "\n\n"
+    def write_section(self, section_name, numbered=True):
+        message = fr"\section{"" if numbered else "*"}{{{section_name}}}" + "\n\n"
+        self.__update_buffer(message)
+    
+    
+    def write_subsection(self, subsection_name, numbered=True):
+        message = fr"\subsection{"" if numbered else "*"}{{{subsection_name}}}" + "\n\n"
+        self.__update_buffer(message)
+    
+    
+    def write_subsubsection(self, subsubsection_name, numbered=True):
+        message = fr"\subsubsection{"" if numbered else "*"}{{{subsubsection_name}}}" + "\n\n"
+        self.__update_buffer(message)
+
+
+    def write_table(self, dictionary: dict[str, float | int | str], caption: str, orientation_horizontal: bool = 1, fit_width: bool = 1, elements_alignement='auto'):
+        
+        all_keys = dictionary.keys()
+        all_values = list(dictionary.values())
+        
+        max_len_dictionary_elements = max([len(i) for i in all_values])
+
+        print(max_len_dictionary_elements)
+
+        if elements_alignement == 'auto':
+            if orientation_horizontal:
+                alignement = "c|"
+                print(alignement)
+                alignement = alignement + "c" * max_len_dictionary_elements
+                print(alignement)
+            else:
+                alignement = "c|" * len(dictionary)
+                alignement = alignement[:-1] # remove last "|" 
+
+        else:
+            alignement = elements_alignement
+
+        if fit_width:
+            resizing_start = "\n\t\t" + r"\resizebox{\textwidth}{!}{%"
+            resizing_stop = "\n\t\t" + "}"
+        else:
+            resizing_start = ""
+            resizing_stop = ""
+
+
+        if orientation_horizontal:
+            titles = ""
+
+            all_rows = ""
+            for key, values in dictionary.items():
+                all_rows = all_rows + "\n\t\t\t" + key + " & " + " & ".join([str(i) for i in values]) + r" \\" + "\n\t\t\t" + r"\hline"
+            all_rows = all_rows[:-14]
+            
+
+        else:
+            titles = "\n\t\t\t" + " & ".join(all_keys) + r" \\" + "\n\t\t\t" + r"\hline"
+            
+            all_rows = ""
+
+            for i in range(max_len_dictionary_elements):
+                all_rows = all_rows + "\n\t\t\t" + " & ".join([str(dictionary[key][i]) for key in all_keys]) + r" \\"
+
+        print(alignement)
+        print(all_rows)
+
+        message = "\n" + r"\begin{table}[!ht]" + "\n\t" + r"\centering" + resizing_start + "\n\t\t\t" + r"\begin{tabular}" + f"{{{alignement}}}" + "\n\t\t\t" + titles + all_rows + "\n\t\t\t" + "\n\t\t\t" + r"\end{tabular}%" + resizing_stop + "\n\t" + r"\caption{" + f"{caption}" + "}" + "\n" + r"\end{table}"
         self.__update_buffer(message)
 
 
@@ -102,9 +166,21 @@ if __name__ == "__main__":
     
     logger.initialize_document(use_default_packages=True)
 
-    logger.write_section("Benvenuto")
-    logger.write_message("Ciao a Ale.\n\n")
-    logger.write_message("Questo è un Messaggio automatico", noindent=True)
+    logger.write_section("Report", numbered=1)
+    logger.write_subsection("Timings", numbered=1)
+    logger.write_subsubsection("Overview", numbered=1)
+    logger.write_message("Here are reported the execution times of the code.\n")
+    
+    tabella = {
+        r"\textbf{RUN}" : ["1", "2", "3"],
+        r"\textbf{Dummy value A} [ms]" : ["30", "45", "17"],
+        r"\textbf{Dummy value B} [ms]" : ["2320", "2540", "2023"],
+        r"\textbf{Dummy value C} [ms]" : ["4", "7", "6"]
+    }
+    
+    caption_tabella = "This is a Table Report"
+
+    logger.write_table(tabella, caption_tabella, orientation_horizontal=0, fit_width=0)
     
     logger.close_document()
 
