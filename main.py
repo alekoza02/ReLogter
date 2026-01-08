@@ -1,6 +1,5 @@
 import subprocess
 import matplotlib.pyplot as plt
-import os
 from pathlib import Path
 
 plt.rcParams.update({
@@ -42,6 +41,10 @@ class ReLogter:
 
         return packages
 
+
+    def write_title(self, title: str, author: str, date: str = None):
+        message = fr"\title{{{title}}}" + "\n" + fr"\author{{{author}}}" + fr"\date{{{r"\today" if date is None else date}}}" + "\n\n" + r"\maketitle" + "\n\n" + r"\newpage" + "\n\n"
+        self.__update_buffer(message)
 
 
     def write_message(self, message, noindent=False):
@@ -110,11 +113,11 @@ class ReLogter:
                 all_rows = all_rows + "\n\t\t\t" + " & ".join([str(dictionary[key][i]) for key in all_keys]) + r" \\"
 
 
-        message = "\n" + r"\begin{table}[!ht]" + "\n\t" + r"\centering" + resizing_start + "\n\t\t\t" + r"\begin{tabular}" + f"{{{alignement}}}" + "\n\t\t\t" + titles + all_rows + "\n\t\t\t" + "\n\t\t\t" + r"\end{tabular}%" + resizing_stop + "\n\t" + r"\caption{" + f"{caption}" + "}" + "\n" + r"\end{table}"
+        message = "\n" + r"\begin{table}[!ht]" + "\n\t" + r"\centering" + resizing_start + "\n\t\t\t" + r"\begin{tabular}" + f"{{{alignement}}}" + "\n\t\t\t" + titles + all_rows + "\n\t\t\t" + "\n\t\t\t" + r"\end{tabular}%" + resizing_stop + "\n\t" + r"\caption{" + f"{caption}" + "}" + "\n" + r"\end{table}" + "\n"
         self.__update_buffer(message)
 
 
-    def write_plot(self, fig: plt.Figure, centering: bool = True, caption: str = "", label: str = "", output_name: str = "plot", output_extension: str = "jpg"):
+    def write_plot(self, fig: plt.Figure, centering: bool = True, caption: str = "", label: str = "", size: str = None, output_name: str = "plot", output_extension: str = "jpg"):
         
         # Ensure directory exists
         dir_path = Path("./output_plots")
@@ -140,9 +143,13 @@ class ReLogter:
         file_name = f"{output_name}_{next_number}.{output_extension}"
         plot_path = dir_path / file_name
 
+        fig.tight_layout()
         fig.savefig(plot_path, dpi=300)
 
-        message = "\n" + r"\begin{figure}[H]" + "\n\t" + f"{r'\centering' if centering else ''}" + "\n\t\t" + fr"\includegraphics[width=\linewidth]{{{plot_path}}}" + "\n\t\t" + fr"\caption{{{caption}}}" + "\n\t\t" + fr"\label{{fig:{label}}}" + "\n\t" + r"\end{figure}"
+        if size is None:
+            size = r"width=\linewidth"
+
+        message = "\n" + r"\begin{figure}[H]" + "\n\t" + f"{r'\centering' if centering else ''}" + "\n\t\t" + fr"\includegraphics[{size}]{{{plot_path}}}" + "\n\t\t" + fr"\caption{{{caption}}}" + "\n\t" + fr"\label{{fig:{label}}}" + "\n" + r"\end{figure}" + "\n"
         self.__update_buffer(message)
 
 
@@ -198,37 +205,69 @@ class ReLogter:
 
 if __name__ == "__main__":
     
-    logger = ReLogter("output", show_errors=True)
+    logger = ReLogter("output", show_errors=False)
     
     logger.initialize_document(use_default_packages=True)
 
-    logger.write_section("Report", numbered=1)
-    logger.write_subsection("Timings", numbered=1)
-    logger.write_subsubsection("Overview", numbered=1)
-    logger.write_message("Here are reported the execution times of the code.\n")
+    logger.write_title("Randomness comparison Python vs NumPy", "Alekoza02")
+    logger.write_section("Introduction", numbered=True)
+    logger.write_message("In this report, we will analyze the effeciency and speed up we can obtain by using the NumPy library. We should notice that NumPy is a compiled and vectorized library, meaning it will be much faster for big samples, but what about small samples and the overhead introduced by the function call? Let's find out...")
+    logger.write_section("Timings", numbered=True)
+
+    results = {}
+    results["N samples"] = [1, 2, 5, 10, 20, 500, 1000, 2000, 5000, 10000, 20000]
+    results["Python [us]"] = []
+    results["NumPy [us]"] = []
     
-    tabella = {
-        r"\textbf{RUN}" : ["1", "2", "3"],
-        r"\textbf{Dummy value A} [ms]" : ["30", "45", "17"],
-        r"\textbf{Dummy value B} [ms]" : ["23", "25", "20"],
-        r"\textbf{Dummy value C} [ms]" : ["4", "7", "6"]
-    }
+    from time import perf_counter_ns
+    import numpy as np
+    import random
+
+    # dummy warm up
+    np.random.random()
+
+    for n_samples in results["N samples"]:
+        start_python = perf_counter_ns()
+        for i in range(n_samples):
+            number = random.random()
+        stop_python = perf_counter_ns()
+
+        start_numpy = perf_counter_ns()
+        numbers = np.random.random(n_samples)
+        stop_numpy = perf_counter_ns()
+
+        results["Python [us]"].append((stop_python - start_python) / 1000)    
+        results["NumPy [us]"].append((stop_numpy - start_numpy) / 1000)    
+
+    logger.write_table(results, "Timings for classic Python (random library) vs NumPy broadcasted function", orientation_horizontal=0, fit_width=0)
+
+    logger.write_section("Plots", numbered=True)
+        
+    logger.write_message("For this experiment, NumPy has a dummy `warm up' calculation.")
+
+    fig, ax = plt.subplots(2, 1)
+
+    ax[0].plot([str(sample) for sample in results["N samples"][5:]], results["Python [us]"][5:], color='blue', label='Python')
+    ax[0].plot([str(sample) for sample in results["N samples"][5:]], results["NumPy [us]"][5:], color='red', label='NumPy')
+
+    ax[0].tick_params(axis='both', which='major', labelsize=14)
+
+    ax[0].set_xlabel("Samples size", fontsize=18)
+    ax[0].set_ylabel(r"Timings [$\mu$s]", fontsize=18)
+
+    ax[0].legend(fontsize=14)
     
-    caption_tabella = "This is a Table Report"
+    ax[1].plot([str(sample) for sample in results["N samples"][:5]], results["Python [us]"][:5], color='blue', label='Python')
+    ax[1].plot([str(sample) for sample in results["N samples"][:5]], results["NumPy [us]"][:5], color='red', label='NumPy')
 
-    logger.write_table(tabella, caption_tabella, orientation_horizontal=0, fit_width=0)
-    
-    fig, ax = plt.subplots()
-    ax.plot([1, 2, 3], [30, 45, 17])
-    ax.plot([1, 2, 3], [23, 25, 20])
-    ax.plot([1, 2, 3], [4, 7, 6])
+    ax[1].tick_params(axis='both', which='major', labelsize=14)
 
-    ax.tick_params(axis='both', which='major', labelsize=14)
+    ax[1].set_xlabel("Samples size", fontsize=18)
+    ax[1].set_ylabel(r"Timings [$\mu$s]", fontsize=18)
 
-    ax.set_xlabel("$N$ run", fontsize=18)
-    ax.set_ylabel("Timings [ms]", fontsize=18)
+    ax[1].legend(fontsize=14)
 
-    logger.write_plot(fig, caption="Visualizing timings")
+    logger.write_plot(fig, caption="Visualizing timings of the two algorithms. Smaller values are better. a) Shows how Python loses on big samples. b) Shows how even if NumPy has a non-negligible overhead, it is blazingly fast.", size=r"width=0.8\linewidth")
 
     logger.close_document()
 
