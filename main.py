@@ -17,6 +17,8 @@ class ReLogter:
         self.rm_garbage = rm_garbage
         self.live_update = live_update
         self.show_errors = show_errors
+
+        self.minipage_context = Minipage(self, 0.45)
         
         self.__output_string = ""
 
@@ -149,7 +151,7 @@ class ReLogter:
         if size is None:
             size = r"width=\linewidth"
 
-        message = "\n" + r"\begin{figure}[H]" + "\n\t" + f"{r'\centering' if centering else ''}" + "\n\t\t" + fr"\includegraphics[{size}]{{{plot_path}}}" + "\n\t\t" + fr"\caption{{{caption}}}" + "\n\t" + fr"\label{{fig:{label}}}" + "\n" + r"\end{figure}" + "\n"
+        message = "\n" + r"\begin{figure}[H]" + "\n\t" + f"{r'\centering' if centering else ''}" + "\n\t\t" + fr"\includegraphics[{size}]{{{plot_path}}}" + "\n\t\t" + fr"\caption{{{caption}}}" + "\n\t" + fr"\label{{fig:{label}}}" + "\n" + r"\end{figure}" + "\n\n"
         self.__update_buffer(message)
 
 
@@ -203,9 +205,46 @@ class ReLogter:
         )
 
 
+
+class Minipage:
+    def __init__(self, document: ReLogter, width):
+        self.document = document
+        self.set_width(width)
+
+
+    def set_width(self, width):
+        self.width = width
+
+
+    def set_hfill(self):
+        self.document.write_message(r"\hfill" + "\n")
+
+
+    def __enter__(self):
+        self.document.write_message(rf"\begin{{minipage}}{{{self.width}\textwidth}}" + "\n")
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.document.write_message("\n" + r"\end{minipage}" + "\n")
+        return False
+
+
+
+#######################################################################################################################################################
+#######################################################################################################################################################
+#######################################################################################################################################################
+##
+## EXAMPLE
+##
+#######################################################################################################################################################
+#######################################################################################################################################################
+#######################################################################################################################################################
+
+
+
 if __name__ == "__main__":
     
-    logger = ReLogter("output", show_errors=False)
+    logger = ReLogter("output", show_errors=True)
     
     logger.initialize_document(use_default_packages=True)
 
@@ -219,6 +258,10 @@ if __name__ == "__main__":
     results["Python [us]"] = []
     results["NumPy [us]"] = []
     
+    results2 = {}
+    results2["Python data"] = []
+    results2["NumPy data"] = []
+    
     from time import perf_counter_ns
     import numpy as np
     import random
@@ -228,13 +271,16 @@ if __name__ == "__main__":
 
     for n_samples in results["N samples"]:
         start_python = perf_counter_ns()
+        results_python = []
         for i in range(n_samples):
-            number = random.random()
+            results_python.append(random.random())
         stop_python = perf_counter_ns()
+        results2["Python data"].append(results_python)
 
         start_numpy = perf_counter_ns()
-        numbers = np.random.random(n_samples)
+        results_numpy = np.random.random(n_samples)
         stop_numpy = perf_counter_ns()
+        results2["NumPy data"].append(results_numpy)
 
         results["Python [us]"].append((stop_python - start_python) / 1000)    
         results["NumPy [us]"].append((stop_numpy - start_numpy) / 1000)    
@@ -267,7 +313,43 @@ if __name__ == "__main__":
 
     ax[1].legend(fontsize=14)
 
-    logger.write_plot(fig, caption="Visualizing timings of the two algorithms. Smaller values are better. a) Shows how Python loses on big samples. b) Shows how even if NumPy has a non-negligible overhead, it is blazingly fast.", size=r"width=0.8\linewidth")
+    logger.write_plot(fig, caption="Visualizing timings of the two algorithms. Smaller values are better. a) Shows how Python loses on big samples. b) Shows how even if NumPy has a non-negligible overhead, it is blazingly fast.", size=r"width=0.8\linewidth", label="a")
+
+    logger.write_section("Randomness distribution")
+
+    logger.minipage_context.set_width(0.35)
+
+    with logger.minipage_context as m:
+        logger.write_message("It may also be interesting to visualize the randomicity of these libraries, who knows: maybe NumPy is faster, but with a poor distribution. This is why we'll try different sample sizes and test which one is actually more randomic at different sizes. Moreover, the way randomness is generated internally can vary significantly between libraries. Some may rely on deterministic algorithms that are fast but exhibit patterns over large sequences, while others might prioritize statistical quality over speed.")
+    
+    logger.minipage_context.set_hfill()
+
+    logger.minipage_context.set_width(0.6)
+    with logger.minipage_context as m:
+
+        fig, ax = plt.subplots(2, 1)
+
+        ax[0].plot([i + 1 for i in range(20)], results2["Python data"][4], color='blue', label='Python')
+        ax[0].plot([i + 1 for i in range(20)], results2["NumPy data"][4], color='red', label='NumPy')
+
+        ax[0].tick_params(axis='both', which='major', labelsize=14)
+
+        ax[0].set_xlabel("Samples", fontsize=18)
+        ax[0].set_ylabel(r"Random value", fontsize=18)
+
+        ax[0].legend(fontsize=14)
+        
+        ax[1].plot([i + 1 for i in range(500)], results2["Python data"][5], color='blue', label='Python')
+        ax[1].plot([i + 1 for i in range(500)], results2["NumPy data"][5], color='red', label='NumPy')
+        
+        ax[1].tick_params(axis='both', which='major', labelsize=14)
+
+        ax[1].set_xlabel("Samples size", fontsize=18)
+        ax[1].set_ylabel(r"Timings [$\mu$s]", fontsize=18)
+
+        ax[1].legend(fontsize=14)
+
+        logger.write_plot(fig, caption="Here we can see the distribution at a) 20 samples and b) 500 samples. The look randomic!", size=r"width=0.8\linewidth", label="b")
 
     logger.close_document()
 
