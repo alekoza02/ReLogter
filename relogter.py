@@ -319,13 +319,13 @@ if __name__ == "__main__":
 
     logger.minipage_context.set_width(0.35)
 
-    with logger.minipage_context as m:
+    with logger.minipage_context:
         logger.write_message("It may also be interesting to visualize the randomicity of these libraries, who knows: maybe NumPy is faster, but with a poor distribution. This is why we'll try different sample sizes and test which one is actually more randomic at different sizes. Moreover, the way randomness is generated internally can vary significantly between libraries. Some may rely on deterministic algorithms that are fast but exhibit patterns over large sequences, while others might prioritize statistical quality over speed.")
     
     logger.minipage_context.set_hfill()
 
     logger.minipage_context.set_width(0.6)
-    with logger.minipage_context as m:
+    with logger.minipage_context:
 
         fig, ax = plt.subplots(2, 1)
 
@@ -349,7 +349,7 @@ if __name__ == "__main__":
 
         ax[1].legend(fontsize=14)
 
-        logger.write_plot(fig, caption="Here we can see the distribution at a) 20 samples and b) 500 samples. The look randomic!", size=r"width=0.8\linewidth", label="b")
+        logger.write_plot(fig, caption="Here we can see the distribution at a) 20 samples and b) 500 samples. They look randomic!", size=r"width=0.8\linewidth", label="b")
 
     logger.close_document()
 
