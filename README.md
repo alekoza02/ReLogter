@@ -11,7 +11,7 @@ Initialize the ReLogter with this snippet:
 
 ```python
 logger = ReLogter("output_file_name")
-logger.initialize_document()
+logger.initialize_document(use_default_packages=True)
 ```
 
 ### Available functions
@@ -21,8 +21,8 @@ Use the following functions to create your report in LaTeX:
 logger.write_title("Title", "Author")
 logger.write_section("Section")
 logger.write_message("Message")
-logger.write_table(results)
-logger.write_plot(figure)
+logger.write_table(results) # results is a Dictionary
+logger.write_plot(figure) # figure is a matplotlib.Figure
 ```
 
 ### Contexts
@@ -37,7 +37,6 @@ Use the contexts to create more complex impaginations:
 
 ```python
 logger.minipage_context.set_width(0.45)
-
 with logger.minipage_context:
     logger.write_message("Message in minipage 1")
 
@@ -49,7 +48,7 @@ with logger.minipage_context:
 ```
 
 ### Saving and compiling
-When you are finished, save everything and if you LaTeX installed, compile it!
+When you are finished, save everything and if you have LaTeX installed, compile it!
 
 ```python
 logger.close_document()
