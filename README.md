@@ -21,6 +21,8 @@ Use the following functions to create your report in LaTeX:
 logger.write_title("Title", "Author")
 logger.write_section("Section")
 logger.write_message("Message")
+logger.write_matrix(np.array([[0, 1], [1, 0]]))
+logger.write_itemize(*elements)
 logger.write_table(results) # results is a Dictionary
 logger.write_plot(figure) # figure is a matplotlib.Figure
 ```

@@ -127,9 +127,7 @@ class ReLogter:
         if elements_alignement == "auto":
             if orientation_horizontal:
                 alignement = "c|"
-                print(alignement)
                 alignement = alignement + "c" * max_len_dictionary_elements
-                print(alignement)
             else:
                 alignement = "c|" * len(dictionary)
                 alignement = alignement[:-1]  # remove last "|"
@@ -199,6 +197,37 @@ class ReLogter:
         )
         self.__update_buffer(message)
 
+    def write_matrix(self, array2D, transpose=False):
+        
+        if transpose:
+            array2D = list(zip(*array2D))
+
+        message = (
+            "\n"
+            + r"\["
+            + r"\begin{pmatrix}"
+            + r" \\ ".join([f"{' & '.join([f'{i}' for i in row])}" for row in array2D])
+            + r"\end{pmatrix}"
+            + r"\]"
+            + "\n\n"
+        )
+        self.__update_buffer(message)
+
+    def write_itemize(self, *elements):
+        
+        refined_elements = [element if type(element) == str else element.__repr__() for element in elements]
+        refined_elements = [f"{{{element}}}" if type(element) == list else element for element in elements]
+
+        message = (
+            "\n"
+            + r"\begin{itemize}"
+            + "\n"
+            + "".join(["\t" fr"\item {element}" "\n" for element in refined_elements])
+            + r"\end{itemize}"
+        )
+
+        self.__update_buffer(message)
+
     def write_plot(
         self,
         fig: plt.Figure,  # pyright: ignore[reportPrivateImportUsage]
@@ -246,7 +275,7 @@ class ReLogter:
             + "\n\t"
             + f"{r'\centering' if centering else ''}"
             + "\n\t\t"
-            + rf"\includegraphics[{size}]{{{plot_path}}}"
+            + rf"\includegraphics[{size}]{{{plot_path.as_posix()}}}"
             + "\n\t\t"
             + rf"\caption{{{caption}}}"
             + "\n\t"
