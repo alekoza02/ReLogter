@@ -1,6 +1,11 @@
+from concurrent.futures import thread
 import subprocess
+import threading
+from copy import deepcopy
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("tkagg") # fast headless renderer
 import matplotlib.pyplot as plt
 
 plt.rcParams.update(
@@ -8,6 +13,8 @@ plt.rcParams.update(
         "text.usetex": True,  # Use LaTeX for all text
         "font.family": "serif",  # Use serif fonts (like in LaTeX)
         "text.latex.preamble": r"\usepackage{amsmath, amssymb}",  # Extra packages
+        "path.simplify": True,
+        "path.simplify_threshold": 1.0
     }
 )
 
@@ -31,6 +38,7 @@ class ReLogter:
         self.minipage_context = Minipage(self, 0.45)
 
         self.__output_string = ""
+        self.rendering_threads = []
 
     def initialize_document(
         self, use_default_packages: bool, additional_packages: str = ""
@@ -90,6 +98,12 @@ class ReLogter:
             + "\n\n"
         )
         self.__update_buffer(message)
+
+
+    def write_newpage(self):
+        message = "\n\n" + r"\newpage" + "\n\n"
+        self.__update_buffer(message)
+
 
     def write_message(self, message, noindent=False):
         if noindent:
@@ -237,10 +251,15 @@ class ReLogter:
         size: str | None = None,
         output_name: str = "plot",
         output_extension: str = "jpg",
+        dpi: int = 300,
+        multithread: bool = False,
+        use_cached: bool = False
     ):
 
-        # Ensure directory exists
-        dir_path = Path("./output_plots")
+        # Ensure directory exists        
+        folder = Path(self.file_name).parent
+
+        dir_path = folder / "output_plots"
         dir_path.mkdir(parents=True, exist_ok=True)
 
         # Find existing files with the same base name
@@ -259,12 +278,27 @@ class ReLogter:
                 except ValueError:
                     pass
 
-        next_number = max(numbers, default=-1) + 1
-        file_name = f"{output_name}_{next_number}.{output_extension}"
-        plot_path = dir_path / file_name
 
-        fig.tight_layout()
-        fig.savefig(plot_path, dpi=300)
+        if use_cached and len(numbers) > 0:
+            plot_path_index = max(numbers)
+            file_name = f"{output_name}_{plot_path_index}.{output_extension}"
+            plt.close(fig)
+
+        else:
+            next_number = max(numbers, default=-1) + 1
+            file_name = f"{output_name}_{next_number}.{output_extension}"
+            plot_path = dir_path / file_name
+
+            if multithread:
+                safe_fig = deepcopy(fig)
+                plt.close(fig)
+
+                rendering_thread = threading.Thread(target=self._render_plot_thread, args=(safe_fig, plot_path, dpi)).start()
+                self.rendering_threads.append(rendering_thread)
+            else:
+                fig.tight_layout()
+                fig.savefig(plot_path, dpi=dpi)
+                plt.close(fig)
 
         if size is None:
             size = r"width=\linewidth"
@@ -275,7 +309,7 @@ class ReLogter:
             + "\n\t"
             + f"{r'\centering' if centering else ''}"
             + "\n\t\t"
-            + rf"\includegraphics[{size}]{{{plot_path.as_posix()}}}"
+            + rf"\includegraphics[{size}]{{{Path("output_plots", file_name).as_posix()}}}"
             + "\n\t\t"
             + rf"\caption{{{caption}}}"
             + "\n\t"
@@ -285,6 +319,11 @@ class ReLogter:
             + "\n\n"
         )
         self.__update_buffer(message)
+
+    def _render_plot_thread(self, fig, plot_path, dpi):
+        fig.tight_layout()
+        fig.savefig(plot_path, dpi=dpi)
+        plt.close(fig)
 
     def close_document(self):
         message = "\n\n" + r"\end{document}"
@@ -302,6 +341,11 @@ class ReLogter:
             self.__output_string = self.__output_string + message
 
     def compile_into_pdf(self):
+
+        for thread in self.rendering_threads:
+            if not thread is None: 
+                thread.join()
+
         mode = "nonstopmode" if self.show_errors else "batchmode"
 
         cmd = [
@@ -313,7 +357,7 @@ class ReLogter:
         ]
 
         result = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True
         )
 
         if self.show_errors:
