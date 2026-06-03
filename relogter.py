@@ -326,17 +326,32 @@ class ReLogter:
         plt.close(fig)
 
     def close_document(self):
-        message = "\n\n" + r"\end{document}"
-        self.__update_buffer(message)
+        if self.live_update:
+            self.__update_buffer("")
 
-        if not self.live_update:
+        else:
+            self.__update_buffer("\n\n" + r"\end{document}")
             with open(f"{self.file_name}.tex", "w") as f:
                 print(f"{self.__output_string}", file=f)
 
-    def __update_buffer(self, message, file_open_mode="a"):
+    def __update_buffer(self, message, file_open_mode="a+"):
         if self.live_update:
-            with open(f"{self.file_name}.tex", file_open_mode) as f:
-                print(f"{message}", file=f, end="")
+            mode = "a+" if file_open_mode == "a" else file_open_mode
+            
+            with open(f"{self.file_name}.tex", mode) as f:
+                f.seek(0, 2)
+                position = f.tell()
+                
+                while position > 0:
+                    position -= 1
+                    f.seek(position)
+                    if f.read(1) == "\n":
+                        break
+                
+                f.seek(position)
+                f.truncate()
+                
+                print(f"\n{message}", file=f, end="\n\\end{document}")
         else:
             self.__output_string = self.__output_string + message
 
