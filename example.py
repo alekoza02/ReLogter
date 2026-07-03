@@ -174,3 +174,5 @@ if __name__ == "__main__":
     logger.close_document()
 
     logger.compile_into_pdf()
+
+    logger.send_report_by_email(config_path="credentials.ini")
